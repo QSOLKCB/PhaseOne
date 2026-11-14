@@ -1,6 +1,6 @@
 # PHASEONE-001 — Native-to-Browser Proof
 
-**Status:** Planned. **Deliverable of this document:** an executable specification for a *future implementation PR*, not a claim that the demonstrator already runs.
+**Status:** Implementation proposed in PR #2; native/WASM parity executed locally, browser visuals and interaction are pending independent verification. Implementation details: [IMPLEMENTATION-001](IMPLEMENTATION-001.md). This remains the acceptance specification.
 
 ## Hypothesis
 
@@ -79,4 +79,4 @@ Record frame-time distribution, tick backlog and WASM update time on a named mac
 
 ## Definition of done
 
-A future PR or PR series may close PHASEONE-001 only after **G1–G7** have evidence links or reproducible local artifacts and all failures are either corrected or explicitly scoped as blocking. This documentation PR satisfies **none** of those runtime gates.
+A future PR or PR series may close PHASEONE-001 only after **G1–G7** have evidence links or reproducible local artifacts and all failures are either corrected or explicitly scoped as blocking. The implementation PR provides native/WASM executable evidence but does **not** establish browser visual/interaction gates until independently tested.

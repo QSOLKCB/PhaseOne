@@ -1,0 +1,35 @@
+name: Native and WebAssembly proof
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain versions
+        run: |
+          cc --version | head -1
+          clang --version | head -1
+          node --version
+          python3 --version
+      - name: Compile both targets
+        run: ./scripts/build.sh
+      - name: Replay and failure assertions
+        run: python3 scripts/verify.py
+      - name: Archive source-pinned evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaseone-native-wasm-evidence
+          path: |
+            build/evidence.json
+            build/native.states
+            build/wasm.states
+            build/invalid-*.bin
+            dist/phaseone-001.bin
+          if-no-files-found: warn

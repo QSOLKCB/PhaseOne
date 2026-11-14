@@ -1,6 +1,6 @@
 # PhaseOne reproducibility and evidence protocol
 
-**Status:** Proposed verification procedure. No tests, scripts, binaries, or proof receipts have yet been executed or produced for PHASEONE-001.
+**Status:** The PHASEONE-001 native/WASM verification scripts now exist. See [IMPLEMENTATION-001](IMPLEMENTATION-001.md) for executed scope and pending browser tests. Generated receipts remain local/CI artifacts, not committed proof of release.
 
 ## Principle
 
@@ -45,7 +45,7 @@ Use distinct statuses such as **PASS**, **FAIL**, **SKIP**, and **NOT RUN**, wit
 
 ## Suggested local execution (future)
 
-A future implementation can expose simple scripts such as `scripts/build-native.sh`, `scripts/build-web.sh`, `scripts/replay-compare.py`, and `scripts/collect-evidence.py`. **These paths are examples only and do not exist yet.** A local static browser build may be served using `python3 -m http.server`, subject to the built output directory and documented MIME types. Prefer Python's standard library and explicit compiler invocations over package-manager sprawl.
+The current scripts are `scripts/build.sh`, `scripts/trace_encode.py`, `scripts/replay-wasm.mjs` and `scripts/verify.py`. They produce a native headless executable, a static WASM/browser bundle, canonical replay snapshots and a JSON evidence record. A separate native browser verification remains to be performed. A local static browser build may be served using `python3 -m http.server`, subject to the built output directory and documented MIME types. Prefer Python's standard library and explicit compiler invocations over package-manager sprawl.
 
 ## Publication gate
 

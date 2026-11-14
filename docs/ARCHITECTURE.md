@@ -1,6 +1,6 @@
 # PhaseOne architecture: native simulation, browser presentation
 
-This is the **proposed** PHASEONE-001 architecture. Paths, symbols, and protocols below are design targets, **not existing implementation**.
+This is the PHASEONE-001 reference architecture. **A working implementation is described in [IMPLEMENTATION-001](IMPLEMENTATION-001.md)**; some sections below remain design guidance for later work.
 
 ## Contract
 
@@ -72,10 +72,10 @@ The exact layout may evolve in an implementation PR with documented rationale.
 
 ## ABI and memory
 
-Define a small versioned ABI before implementing it, for example:
+The implemented versioned ABI is described in [IMPLEMENTATION-001](IMPLEMENTATION-001.md); its exports follow this shape:
 
 ```c
-/* Sketch only — no PhaseOne implementation exports exist yet. */
+/* Implemented ABI v1, representative declarations */
 uint32_t phaseone_abi_version(void);
 int32_t phaseone_reset(uint32_t seed);
 int32_t phaseone_step(const uint8_t *input_bytes, uint32_t input_len);
