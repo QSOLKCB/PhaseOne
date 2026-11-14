@@ -147,7 +147,7 @@ def run_checks():
     git_rev = cmd(["git", "rev-parse", "HEAD"], check=False)
     git_status = cmd(["git", "status", "--porcelain"], check=False)
     receipts = {
-        "schema":"phaseone-evidence-v1",
+        "schema":"phaseone-evidence-v2",
         "status":"PASS",
         "scope":"Native selftests + CLI malformed trace rejection + WASM ABI negative tests + canonical replay parity. No visual browser proof.",
         "source_sha": git_rev.stdout.strip() if git_rev.returncode == 0 else "UNAVAILABLE",
