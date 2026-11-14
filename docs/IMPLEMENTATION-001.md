@@ -12,7 +12,11 @@
 
 ## Build and run
 
-Development prerequisites: C99 compiler, LLVM Clang with wasm32 + wasm-ld, Python 3; Node.js for the **development-only** automated WASM parity runner. Browser runtime uses **only** static HTML/CSS/JS, WebAssembly and WebGL 2—no Node or external assets.
+Development prerequisites: a native C99 compiler, **LLVM Clang 18.1.3 and LLD 18.1.3**, Python 3, and **Node.js 22.23.4 only for the development-time WASM replay comparator**. These exact versions are enforced by `scripts/check_toolchain.py`, using `.llvm-version` and `.node-version`. The browser uses only static HTML/CSS/JS, WebAssembly and WebGL 2—no Node, npm or external assets.
+
+For Ubuntu 24.04, acquire the compiler/linker using `sudo apt-get update && sudo apt-get install clang-18 lld-18`, and check that `clang-18 --version` and `wasm-ld-18 --version` both report 18.1.3. Obtain Node 22.23.4 from the official Node.js release archive (or with an existing nvm: `nvm install 22.23.4`); verify with `node --version`. CI selects Node using `actions/setup-node` with the exact .node-version file. Other distributions can install the same versions through their own package repositories or pinned offline archives; if the version differs, the check intentionally fails. No installer is executed by the local build scripts.
+
+`WASM_CC`, `WASM_LD`, and `NODE` may override executable **paths**, but not required versions. The linker path is passed explicitly to Clang via `-fuse-ld`. The native C compiler is recorded but is not version-pinned, to independently test portability. An externally obtained, byte-for-byte identical compiler binary is *not* guaranteed by matching upstream version numbers alone.
 
 ```sh
 ./scripts/build.sh
@@ -40,7 +44,7 @@ Generated `build/` and `dist/` are gitignored. `dist/` contains a static browser
 
 ## Evidence and current limitations
 
-Local reference environment for this PR's initial proof: Debian GCC 14.2.0, LLVM Clang 17.0.0 (wasm32), Node 22.16.0, Python 3.13.5. The output traces and byte-for-byte hashes are produced by `python3 scripts/verify.py` in `build/evidence.json`; CI records its own versions and Git SHA. Toolchain versions are recorded, not yet enforced by a lockfile.
+Local reference environment for this PR's initial proof: Debian GCC 14.2.0, LLVM Clang 17.0.0 (wasm32), Node 22.16.0, Python 3.13.5. The output traces and byte-for-byte hashes are produced by `python3 scripts/verify.py` in `build/evidence.json`; CI records its own versions and exact PR head SHA. An interrupted run leaves a RUNNING, never a stale PASS, receipt. Exact LLVM/LLD and Node versions are now enforced by the committed version files; the verifier initializes a fresh RUNNING receipt before executing checks, writes FAIL status and command diagnostics on any failure, and records PASS only on completion. Native selftest failure and stale-receipt protection have dedicated regression tests.
 
 **Executed:** native tests, native invalid-trace rejection, native/WASM ABI checks, independent state goldens, intentional comparator mutation, and 312-snapshot native-vs-WASM parity using a JS WASM runtime.
 

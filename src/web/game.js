@@ -1,14 +1,16 @@
 /* Copyright 2026 QSOL-IMC. Apache-2.0. Browser host; simulation stays in C99/WASM. */
 import {createRenderer} from './renderer.js';
+import {createInputQueue, resetSession} from './input.mjs';
 const $ = id => document.getElementById(id);
 const status = $('status');
 const canvas = $('viewport');
 const start = $('start');
 const reset = $('reset');
-const keys = new Set();
-let simulation, renderer, firePending=false, yawPending=0, pitchPending=0;
+const input = createInputQueue();
+let simulation, renderer;
 const fixedStepMs = 1000/60;
-let prev=0, accumulator=0, active=false;
+const clock = {prev:0, accumulator:0};
+let active=false;
 
 async function loadSimulation() {
   const response = await fetch('./phaseone.wasm');
@@ -50,19 +52,6 @@ async function loadSimulation() {
     }
   };
 }
-function encodeMotion() {
-  let flags=0;
-  if(keys.has('KeyW')||keys.has('ArrowUp'))flags|=1;
-  if(keys.has('KeyS')||keys.has('ArrowDown'))flags|=2;
-  if(keys.has('KeyA'))flags|=4;
-  if(keys.has('KeyD'))flags|=8;
-  if(firePending)flags|=16;
-  firePending=false;
-  const yaw=Math.max(-300,Math.min(300,Math.trunc(yawPending)));
-  const pitch=Math.max(-300,Math.min(300,Math.trunc(pitchPending)));
-  yawPending-=yaw;pitchPending-=pitch;
-  return {flags,yaw,pitch};
-}
 function hud(s) {
   $('tick').textContent=s.tick;
   $('location').textContent=`${(s.x/1000).toFixed(2)}, ${(s.z/1000).toFixed(2)}`;
@@ -72,35 +61,39 @@ function hud(s) {
 }
 function frame(now) {
   if (!simulation || !renderer) return;
-  if (!prev) prev=now;
-  const elapsed=Math.max(0,Math.min(250,now-prev));prev=now;
+  if (!clock.prev) clock.prev=now;
+  const elapsed=Math.max(0,Math.min(250,now-clock.prev));clock.prev=now;
   if (active) {
-    accumulator+=elapsed;
+    clock.accumulator+=elapsed;
     let steps=0;
     try {
-      while(accumulator>=fixedStepMs && steps<5) {
-        const {flags,yaw,pitch}=encodeMotion();
+      while(clock.accumulator>=fixedStepMs && steps<5) {
+        const {flags,yaw,pitch}=input.consume();
         simulation.step(flags,yaw,pitch);
-        accumulator-=fixedStepMs; steps++;
+        clock.accumulator-=fixedStepMs; steps++;
       }
-      if (accumulator>=fixedStepMs) {
-        accumulator=0; status.textContent='Simulation catch-up capped (frame stall)';
+      if (clock.accumulator>=fixedStepMs) {
+        clock.accumulator=0; status.textContent='Simulation catch-up capped (frame stall)';
       }
     } catch(error) {active=false;status.textContent=error.message;}
-  } else {accumulator=0;}
+  } else {clock.accumulator=0;}
   try {
     const state=simulation.state();
     renderer.render(state);hud(state);
   } catch(error) {active=false;status.textContent=error.message;return;}
   requestAnimationFrame(frame);
 }
-function stop() {active=false;keys.clear();firePending=false;yawPending=0;pitchPending=0;}
+function stop() {active=false;input.clear();clock.prev=0;clock.accumulator=0;}
+function resetSimulation() {
+  resetSession(simulation,input,clock);
+  status.textContent='Simulation reset';
+}
 function setupControls() {
   start.addEventListener('click',()=>{
     if (!canvas.requestPointerLock) {status.textContent='Pointer lock unsupported';return;}
     canvas.requestPointerLock().catch(e=>{status.textContent=`Pointer lock denied: ${e.message}`;});
   });
-  reset.addEventListener('click',()=>{simulation.reset();keys.clear();firePending=false;status.textContent='Simulation reset';});
+  reset.addEventListener('click',resetSimulation);
   document.addEventListener('pointerlockchange',()=>{
     active=document.pointerLockElement===canvas;
     start.textContent=active?'PLAYING · ESC TO RELEASE':'ENTER SIMULATION';
@@ -110,18 +103,17 @@ function setupControls() {
   document.addEventListener('pointerlockerror',()=>{status.textContent='Pointer lock denied';stop();});
   document.addEventListener('keydown',event=>{
     if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','Space'].includes(event.code))event.preventDefault();
-    if (event.code==='KeyR'&&!event.repeat) {simulation.reset();status.textContent='Simulation reset';}
-    keys.add(event.code);
+    if (event.code==='KeyR'&&!event.repeat) {resetSimulation();return;}
+    input.press(event.code);
   });
-  document.addEventListener('keyup',event=>keys.delete(event.code));
+  document.addEventListener('keyup',event=>input.release(event.code));
   window.addEventListener('blur',stop);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
   canvas.addEventListener('mousemove',event=>{
     if (!active)return;
-    yawPending=Math.max(-1500,Math.min(1500,yawPending+event.movementX*3));
-    pitchPending=Math.max(-1500,Math.min(1500,pitchPending-event.movementY*3));
+    input.move(event.movementX,event.movementY);
   });
-  canvas.addEventListener('mousedown',event=>{if(active&&event.button===0)firePending=true;});
+  canvas.addEventListener('mousedown',event=>{if(active&&event.button===0)input.fire();});
 }
 function asHex(bytes) {return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
 async function selftest() {

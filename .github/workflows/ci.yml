@@ -11,18 +11,33 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Toolchain versions
+      - name: Install pinned LLVM toolchain
         run: |
-          cc --version | head -1
-          clang --version | head -1
-          node --version
-          python3 --version
+          sudo apt-get update -qq
+          sudo apt-get install -y clang-18 lld-18
+      - name: Select pinned replay runtime (no npm)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Check exact toolchain pins and test pin guard
+        run: |
+          python3 scripts/check_toolchain.py all
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Compile both targets
-        run: ./scripts/build.sh
+        id: build
+        run: |
+          mkdir -p build
+          ./scripts/build.sh 2>&1 | tee build/build.log
       - name: Replay and failure assertions
+        if: always()
         env:
           PHASEONE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PHASEONE_BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: python3 scripts/verify.py
+      - name: Browser input reset regression
+        if: success()
+        run: node --test tests/input-reset.test.mjs
       - name: Archive source-pinned evidence (success or failure)
         if: always()
         uses: actions/upload-artifact@v4
@@ -30,6 +45,7 @@ jobs:
           name: phaseone-native-wasm-evidence
           path: |
             build/evidence.json
+            build/build.log
             build/native.states
             build/wasm.states
             build/invalid-*.bin

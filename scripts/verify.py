@@ -8,6 +8,9 @@ import json
 import os
 from pathlib import Path
 import platform
+import datetime
+import sys
+import traceback
 import shutil
 import struct
 import subprocess
@@ -16,12 +19,35 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 SNAP_FIELDS = ("tick", "x_mm", "z_mm", "yaw_deci", "pitch_deci", "target_alive", "score")
+COMMAND_LOG = []
+CURRENT_CHECK = "initialization"
+
+
+def persist_receipt(receipt):
+    """Atomic update means a previous PASS can never survive a started new run."""
+    BUILD.mkdir(parents=True, exist_ok=True)
+    path = BUILD / "evidence.json"
+    temp = BUILD / "evidence.json.tmp"
+    temp.write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n", encoding="utf-8")
+    os.replace(temp, path)
+
 
 
 def cmd(args, *, check=True):
-    p = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+    command = [str(arg) for arg in args]
+    try:
+        p = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    except OSError as exc:
+        COMMAND_LOG.append({"argv":command,"exit_code":None,"diagnostics":str(exc)})
+        raise
+    COMMAND_LOG.append({
+        "argv":command,
+        "exit_code":p.returncode,
+        "stdout_tail":p.stdout[-4096:],
+        "stderr_tail":p.stderr[-4096:],
+    })
     if check and p.returncode:
-        raise RuntimeError(f"command failed ({p.returncode}): {' '.join(map(str,args))}\nstdout: {p.stdout}\nstderr: {p.stderr}")
+        raise RuntimeError(f"command failed ({p.returncode}): {' '.join(command)}\nstdout: {p.stdout}\nstderr: {p.stderr}")
     return p
 
 
@@ -64,19 +90,27 @@ def test_rejection(trace):
             raise ValueError(f"Native CLI accepted {name}")
 
 
-def main():
+def run_checks():
+    global CURRENT_CHECK
+    CURRENT_CHECK = "toolchain_pin"
+    cmd([sys.executable, str(ROOT/"scripts/check_toolchain.py"), "replay"])
+    CURRENT_CHECK = "native_selftest"
     native_exe=BUILD/"phaseone-native"
     wasm_module=DIST/"phaseone.wasm"
     trace_path=DIST/"phaseone-001.bin"
-    node=shutil.which("node")
+    node=os.environ.get("NODE") or shutil.which("node")
     if node is None:
-        raise SystemExit("Node.js required for automated WASM parity runner (no npm packages); browser demo has no Node dependency")
+        raise RuntimeError("Pinned Node.js runtime missing: install version from .node-version")
     cmd([str(native_exe),"--selftest"])
+    CURRENT_CHECK = "native_replay"
     cmd([str(native_exe),str(trace_path),str(BUILD/"native.states")])
+    CURRENT_CHECK = "wasm_abi"
     cmd([node,str(ROOT/"scripts/replay-wasm.mjs"),str(wasm_module),str(trace_path),str(BUILD/"wasm.states")])
+    CURRENT_CHECK = "native_wasm_replay"
     native_bytes=(BUILD/"native.states").read_bytes()
     wasm_bytes=(BUILD/"wasm.states").read_bytes()
     count=compare(native_bytes,wasm_bytes)
+    CURRENT_CHECK = "mismatch_detection"
     altered=bytearray(wasm_bytes)
     altered[32+8] ^= 1
     try:
@@ -86,7 +120,9 @@ def main():
             raise ValueError("Negative control did not identify tick and field") from exc
     else:
         raise ValueError("Negative control was not caught")
+    CURRENT_CHECK = "malformed_traces"
     test_rejection(trace_path.read_bytes())
+    CURRENT_CHECK = "golden_states"
     if count != 312:
         raise ValueError(f"Unexpected snapshot count: {count}")
     goldens = {
@@ -120,7 +156,8 @@ def main():
                         ("clean" if not git_status.stdout.strip() else "dirty")),
         "platform": platform.platform(),
         "native_cc_version": cmd([os.getenv("CC","cc"),"--version"]).stdout.splitlines()[0],
-        "wasm_cc_version": cmd([os.getenv("WASM_CC","clang"),"--version"]).stdout.splitlines()[0],
+        "wasm_cc_version": cmd([os.getenv("WASM_CC","clang-18"),"--version"]).stdout.splitlines()[0],
+        "wasm_ld_version": cmd([os.getenv("WASM_LD","wasm-ld-18"),"--version"]).stdout.splitlines()[0],
         "node_version": cmd([node,"--version"]).stdout.strip(),
         "python_version": platform.python_version(),
         "trace_sha256":sha(trace_path),"native_states_sha256":sha(BUILD/"native.states"),
@@ -130,9 +167,91 @@ def main():
         "checks": {"native_selftest":"PASS","wasm_abi":"PASS","native_wasm_replay":"PASS",
                    "malformed_traces":"PASS","mismatch_detection":"PASS","headless_browser_visual":"NOT RUN"}
     }
-    (BUILD/"evidence.json").write_text(json.dumps(receipts,indent=2,sort_keys=True)+"\n",encoding="utf-8")
-    print(json.dumps(receipts,indent=2,sort_keys=True))
+    receipts["checks"].update({"toolchain_pin":"PASS","native_replay":"PASS","golden_states":"PASS"})
+    return receipts
+
+
+def main():
+    global CURRENT_CHECK
+    # This write happens before executing any selftest or comparison.
+    # A previous run's PASS is immediately invalidated by RUNNING.
+    COMMAND_LOG.clear()
+    CURRENT_CHECK = "initialization"
+    receipt = {
+        "schema": "phaseone-evidence-v2",
+        "status": "RUNNING",
+        "started_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "source_head_sha": os.environ.get("PHASEONE_HEAD_SHA", "UNAVAILABLE"),
+        "build_outcome": os.environ.get("PHASEONE_BUILD_OUTCOME", "LOCAL/NOT-REPORTED"),
+        "scope": "Native + WASM replay; browser visuals NOT RUN",
+        "checks": {
+            "toolchain_pin":"NOT RUN", "native_selftest":"NOT RUN",
+            "native_replay":"NOT RUN","wasm_abi":"NOT RUN",
+            "native_wasm_replay":"NOT RUN","mismatch_detection":"NOT RUN",
+            "malformed_traces":"NOT RUN","golden_states":"NOT RUN",
+            "headless_browser_visual":"NOT RUN"
+        },
+        "command_log":[],
+    }
+    persist_receipt(receipt)
+    try:
+        # Do not compare stale state streams from prior failed executions.
+        for stale in (BUILD/"native.states", BUILD/"wasm.states"):
+            stale.unlink(missing_ok=True)
+        if receipt["build_outcome"] not in ("success", "LOCAL/NOT-REPORTED"):
+            CURRENT_CHECK = "build"
+            log_file = BUILD/"build.log"
+            detail = log_file.read_text(errors="replace")[-4096:] if log_file.exists() else "no build.log"
+            raise RuntimeError(f"Earlier CI build outcome {receipt['build_outcome']}: {detail}")
+        passed = run_checks()
+        saved_checks = receipt["checks"]
+        receipt.update(passed)
+        saved_checks.update(passed["checks"])
+        receipt["checks"] = saved_checks
+        receipt["status"] = "PASS"
+        return receipt
+    except BaseException as exc:
+        receipt["status"] = "FAIL"
+        receipt["failed_check"] = CURRENT_CHECK
+        receipt["checks"][CURRENT_CHECK] = "FAIL"
+        receipt["diagnostics"] = {
+            "exception_type":type(exc).__name__,
+            "message":str(exc),
+            "traceback":traceback.format_exc()[-8192:]
+        }
+        raise
+    finally:
+        receipt["command_log"] = COMMAND_LOG.copy()
+        for label,path in (
+            ("trace_sha256",DIST/"phaseone-001.bin"),
+            ("native_states_sha256",BUILD/"native.states"),
+            ("wasm_states_sha256",BUILD/"wasm.states"),
+            ("wasm_module_sha256",DIST/"phaseone.wasm")
+        ):
+            if path.is_file():
+                try:
+                    receipt[label] = sha(path)
+                except OSError as exc:
+                    receipt.setdefault("receipt_warnings", []).append(f"{label}: {exc}")
+        try:
+            git_rev = cmd(["git","rev-parse","HEAD"],check=False)
+            git_status = cmd(["git","status","--porcelain"],check=False)
+            receipt["source_sha"] = git_rev.stdout.strip() if git_rev.returncode==0 else "UNAVAILABLE"
+            receipt["tree_status"] = ("UNAVAILABLE" if git_status.returncode else
+                                      ("clean" if not git_status.stdout.strip() else "dirty"))
+        except OSError as exc:
+            receipt["source_sha"] = "UNAVAILABLE"
+            receipt["tree_status"] = "UNAVAILABLE"
+            receipt.setdefault("receipt_warnings", []).append(f"Git metadata: {exc}")
+        receipt["command_log"] = COMMAND_LOG.copy()
+        receipt["finished_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        persist_receipt(receipt)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        result=main()
+    except BaseException as exc:
+        print(f"PHASEONE verification FAILED: {exc}", file=sys.stderr)
+        raise
+    print(json.dumps(result, indent=2, sort_keys=True))

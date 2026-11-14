@@ -23,7 +23,7 @@ This implementation provides:
 
 ## Run locally
 
-Prerequisites: C99 compiler; LLVM clang/wasm-ld; Python 3; Node.js **only** for the development-time automated WASM replay comparison (no npm install).
+Prerequisites: C99 compiler; **Clang/LLD 18.1.3** (see `.llvm-version`); Python 3; **Node 22.23.4** only for development-time replay tests (see `.node-version`; no npm install). The build fails closed on version mismatches. For Ubuntu 24.04 install `clang-18 lld-18`; consult [implementation notes](docs/IMPLEMENTATION-001.md) for acquisition instructions.
 
 ```sh
 ./scripts/build.sh
