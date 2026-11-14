@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>PHASEONE / Native-to-Browser Proof</title>
+<style>
+:root{font-family:ui-sans-serif,system-ui,sans-serif;background:#070b14;color:#eaf6fc}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#112d45 0%,#070b14 70%)}
+.shell{display:flex;flex-direction:column;max-width:1400px;margin:auto;min-height:100vh;padding:16px 24px;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0}
+.brand{font-weight:900;letter-spacing:.15em;font-size:clamp(23px,3vw,37px)}.brand span{color:#50def0}
+.subtitle{font-size:12px;letter-spacing:.16em;color:#8bb7cd} .chip{font-size:11px;color:#53dff0;border:1px solid #286378;padding:9px 14px;border-radius:4px;letter-spacing:.1em}
+.stage{position:relative;flex:1;min-height:480px;overflow:hidden;border:1px solid #2a526b;border-radius:9px;background:#101e2d;box-shadow:0 12px 60px #0008}
+canvas{display:block;width:100%;height:100%;position:absolute;inset:0;outline:none}
+.vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#040c1955,transparent 25%,transparent 80%,#040c1977)}
+.stage-head{position:absolute;left:22px;top:20px;font-size:11px;font-weight:700;letter-spacing:.18em;color:#c9f4ff;text-shadow:0 2px 6px #000}
+.stage-head small{display:block;color:#4be1e4;font-size:10px;margin-top:7px;letter-spacing:.1em}
+.crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;pointer-events:none}
+.crosshair:before,.crosshair:after{content:"";position:absolute;background:#d2ffff;box-shadow:0 0 9px #4adfeb}
+.crosshair:before{width:2px;height:22px;left:11px;top:1px}.crosshair:after{height:2px;width:22px;top:11px;left:1px}
+.stage-bottom{position:absolute;bottom:20px;left:22px;right:22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+button{border-radius:3px;border:1px solid #4de3ed;background:#1b5f72;color:#ecffff;font-size:11px;letter-spacing:.1em;font-weight:700;min-height:42px;padding:10px 16px;cursor:pointer}
+button:hover{background:#217a90}button:disabled{opacity:.5;cursor:not-allowed}button.secondary{background:#092637;border-color:#386578}
+#status{font-size:11px;color:#a7d7e5;font-family:ui-monospace,monospace;text-shadow:0 1px 6px #000}
+.telemetry{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.telemetry>div{border:1px solid #244052;background:#0f1c2b;padding:13px 15px;border-radius:5px}
+.telemetry strong{display:block;color:#718fa2;font-size:10px;letter-spacing:.14em;margin-bottom:6px}
+.telemetry span{font-family:ui-monospace,monospace;font-weight:700;font-size:18px}
+.live{color:#ff8b8b}.cleared{color:#76ffbb}footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:11px;color:#8199af;margin-bottom:5px}footer b{color:#ccecf5}
+#test-report{display:none}
+@media(max-width:700px){.shell{padding:10px;gap:9px}.stage{min-height:380px}.chip{display:none}.telemetry{grid-template-columns:repeat(2,minmax(0,1fr))}.stage-bottom{left:10px;bottom:10px;right:10px;flex-wrap:wrap}header{margin:5px}}
+</style>
+</head>
+<body><main class="shell">
+<header><div><div class="brand">PHASE<span>ONE</span></div><div class="subtitle">NATIVE SYSTEMS / BROWSER EXECUTION</div></div><div class="chip">PHASEONE-001 · TECHNICAL PROOF</div></header>
+<div class="stage"><canvas id="viewport" aria-label="First-person view of original training room" tabindex="0"></canvas><div class="vignette"></div>
+<div class="stage-head">SIMULATION FACILITY / ROOM 01 <small>ORIGINAL PROCEDURAL ENVIRONMENT · WEBGL 2</small></div>
+<div class="crosshair" aria-hidden="true"></div><div class="stage-bottom"><span id="status" role="status">LOADING WASM SIMULATION...</span><div><button id="start">ENTER SIMULATION</button> <button id="reset" class="secondary">RESET (R)</button></div></div></div>
+<div class="telemetry"><div><strong>SIMULATION TICK</strong><span id="tick">0</span></div><div><strong>PLAYER POSITION (M)</strong><span id="location">0.00, 4.50</span></div><div><strong>TARGET STATUS</strong><span class="live" id="target">ACTIVE</span></div><div><strong>HIT SCORE</strong><span id="score">0</span></div></div>
+<footer><span><b>W A S D</b> MOVE · <b>MOUSE</b> LOOK · <b>LEFT CLICK</b> FIRE · <b>ESC</b> RELEASE · <b>R</b> RESET</span><span>C99 → WASM → WEBGL 2 · QSOL-IMC · APACHE-2.0</span></footer>
+<pre id="test-report" aria-hidden="true"></pre>
+</main><script type="module" src="./game.js"></script></body></html>

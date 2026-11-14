@@ -1,72 +1,57 @@
 # PhaseOne
 
-**An original first-person browser game, developed game-first and compiled for the web.**
+**An original first-person browser game experiment: game logic first, native and web targets second.**
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Status: design / documentation](https://img.shields.io/badge/status-design%20%2F%20documentation-lightgrey)
+[![Native and WebAssembly proof](https://github.com/QSOLKCB/PhaseOne/actions/workflows/ci.yml/badge.svg)](https://github.com/QSOLKCB/PhaseOne/actions/workflows/ci.yml)
 ![Milestone: PHASEONE-001](https://img.shields.io/badge/milestone-PHASEONE--001-blueviolet)
 
-> **Write the simulation once. Run it natively. Compile it to WebAssembly. Present it using web standards.**
+> **Write the C99 simulation once. Run it natively. Compile to WebAssembly. Render using WebGL 2.**
 
-PhaseOne is a QSOL-IMC technical experiment in developing an **original FPS** with a native, game-oriented simulation core and a browser runtime. It tests a different workflow from browser-first game development: the same C99 gameplay logic must be useful to a native headless program and to a WebAssembly module, while a small JavaScript browser host handles WebGL 2 graphics, input, and eventually Web Audio.
+PhaseOne is a QSOL-IMC experiment in compiling an original first-person game-oriented **C99 simulation** to both a native Linux headless runner and a browser WASM runtime. Browser presentation uses a thin, static JavaScript host and original procedural WebGL 2 graphics. It is **not** a port or reproduction of an existing proprietary game.
 
-This is **not** a port, remake, compatibility layer, or reverse-engineering project for any existing proprietary game. PhaseOne will use original gameplay, story, names, code, and creative assets.
+## PHASEONE-001 — runnable technical demonstration
 
-## Current status
+This implementation provides:
+- C99 fixed-tick integer simulation: first-person motion, wall/obstacle collision, aiming, target hit detection and score.
+- Native CLI replay and direct LLVM/Clang `wasm32` compilation from the **identical C99 core** (no full game engine or Emscripten runtime).
+- One small original WebGL 2 training chamber, pointer-lock mouse look, WASD, firing and reset.
+- A versioned input and snapshot ABI, replay trace, expected reference states, negative tests and native/WASM parity verification.
+- Static browser files without an online gameplay service, npm dependencies or external game assets.
 
-**Documentation and architecture only.** There is no playable game, compiler pipeline, verified cross-target parity, or working browser demo in the repository yet. The first implementation is specified by [PHASEONE-001](docs/PHASEONE-001.md); none of its acceptance criteria are being claimed as achieved by this documentation PR.
+**Verification boundary:** native and WASM replay parity was executed locally across 311 ticks (312 snapshots), with identical state bytes and deliberate mismatch detection. Browser rendering and gameplay are *implemented but not yet verified in an interactive browser*; do not consider all PHASEONE-001 gates complete.
 
-## The first technical proof
+## Run locally
 
-1. Implement one small **C99 simulation core** that compiles unchanged for a native Linux headless runner and for the browser as WebAssembly.
-2. Build one **small first-person test environment** from original/procedural geometry, drawn using WebGL 2 from a thin browser host.
-3. Drive a **fixed-tick simulation** with normalized movement/look/fire input, simple collision, and a static target-hit interaction.
-4. Replay the same canonical input trace through native and WASM execution; compare specified integer simulation state, log discrepancies, and record reproducible evidence.
-5. Package a static browser build that runs from a local HTTP server with no online account, remote gameplay service, or runtime package manager.
+Prerequisites: C99 compiler; **Clang/LLD 18.1.3** (see `.llvm-version`); Python 3; **Node 22.23.4** only for development-time replay tests (see `.node-version`; no npm install). The build fails closed on version mismatches. For Ubuntu 24.04 install `clang-18 lld-18`; consult [implementation notes](docs/IMPLEMENTATION-001.md) for acquisition instructions.
 
-The objective is **portable game logic and a demonstrably functioning browser presentation**, not an open-world game or a claim that compiled WASM magically replicates a full native engine.
-
-## Two paths, one simulation
-
-```text
-                 PhaseOne C99 game simulation
-                              |
-                   +----------+----------+
-                   |                     |
-            Native C compiler     Emscripten / LLVM
-                   |                     |
-           Headless CLI runner     WebAssembly module
-             replay / testing             |
-                                Minimal JavaScript host
-                                   WebGL 2 / input
-                                          |
-                                   Browser FPS demo
+```sh
+./scripts/build.sh
+python3 scripts/verify.py
+python3 -m http.server 8000 --directory dist
 ```
 
-For the first milestone, the **simulation** is shared; rendering is intentionally browser-specific. A native GPU renderer is not required to prove the claim.
+Navigate to `http://localhost:8000/`. Select **ENTER SIMULATION**, then use WASD, mouse look, left click to fire, Escape to release, and R to reset. The browser must support WebAssembly, pointer lock and WebGL 2. The built-in WASM/browser replay diagnostic is available at `/?selftest=1`; its JSON report is exposed through the page's `#test-report` element.
 
-## Project documentation
+The compiler and test dependencies are **development tools**; the browser bundle contains only HTML/CSS/JS, WebAssembly, and procedural geometry. Build artifacts are generated in `dist/` and `build/` and are not committed. No automatic Pages deployment or release is added.
+
+## Documentation
 
 | Document | Purpose |
 | --- | --- |
-| [PHASEONE-001](docs/PHASEONE-001.md) | First demonstrator scope, deliverables, acceptance criteria, and exclusions |
-| [Architecture](docs/ARCHITECTURE.md) | C99/WASM boundary, host responsibilities, fixed-tick simulation, and test data flow |
-| [ADR-0001](docs/ADR-0001.md) | Why C99 + WASM + WebGL 2 was selected, and what was rejected |
-| [Evidence protocol](docs/EVIDENCE.md) | Reproduction records, cross-target comparisons, and release gates |
-| [Originality and licensing](docs/ORIGINALITY.md) | Original IP boundary, asset provenance, and third-party intake policy |
-| [Roadmap](docs/ROADMAP.md) | Sequenced expansion after the proof works |
-| [Contributor rules](AGENTS.md) | Scope control, evidence standards, and change-management expectations |
+| [PHASEONE-001](docs/PHASEONE-001.md) | Acceptance gates and minimal vertical slice |
+| [Implementation notes](docs/IMPLEMENTATION-001.md) | Current code, local commands, ABI, reproducibility and limitations |
+| [Architecture](docs/ARCHITECTURE.md) | Simulation/host split, replay contract and portability |
+| [ADR-0001](docs/ADR-0001.md) | Why C99 + WASM + WebGL 2 |
+| [Evidence protocol](docs/EVIDENCE.md) | Source-pinned evidence, divergence and failure handling |
+| [Originality](docs/ORIGINALITY.md) | Original code/art/IP boundary and third-party provenance |
+| [Roadmap](docs/ROADMAP.md) | Deliberate expansion after technical gates pass |
+| [Contributor instructions](AGENTS.md) | Scope and review rules |
 
-## Technical principles
+## Principles
 
-- **Minimal runtime dependencies:** web-standard APIs, a static site, and WASM; compiler and test tools are development dependencies.
-- **Correctness over speed:** report executed tests separately from hypotheses. Do not promise exact parity where floating point, toolchain, or browser behavior has not been controlled.
-- **Offline-first:** local development and local static serving must work without cloud services. An installable offline cache/service worker is a future, separately tested capability.
-- **Originality:** no copyrighted game code, levels, textures, audio, characters, or ripped data.
-- **Expandable:** retain interfaces that allow new game systems later, without implementing them prematurely.
+**Correctness before performance. Offline-first. No heavyweight browser runtime. Original game IP. No hidden cloud services.**
 
-## Licence
-
-The repository currently declares **Apache-2.0** for its source code. Future creative assets and third-party material require explicit provenance and documented rights before inclusion; see [Originality](docs/ORIGINALITY.md).
+The source code is Apache-2.0 licensed. Original assets and third-party materials follow the provenance policy.
 
 **Maintained by QSOL-IMC.**

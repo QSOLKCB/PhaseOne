@@ -1,0 +1,19 @@
+{
+  "schema": "P1T1",
+  "records": [
+    {"flags": ["forward"], "repeat": 8},
+    {"flags": ["right"], "repeat": 3},
+    {"flags": ["fire"], "yaw": 100},
+    {"flags": ["fire"], "yaw": -100},
+    {"flags": ["fire"]},
+    {"flags": ["forward", "right"], "repeat": 5},
+    {"flags": ["back"], "repeat": 4},
+    {"flags": [], "pitch": 150},
+    {"flags": [], "pitch": -150},
+    {"flags": ["left"], "repeat": 5},
+    {"flags": ["forward"], "repeat": 90},
+    {"flags": ["back"], "repeat": 100},
+    {"flags": [], "yaw": -300},
+    {"flags": ["forward"], "repeat": 90}
+  ]
+}
