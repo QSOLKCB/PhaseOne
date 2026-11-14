@@ -108,12 +108,16 @@ def main():
                 raise ValueError(f"Independent golden failure at tick {tick}: {field}: {actual[field]} != {value}")
     if state_at(native_bytes,0) != {"tick":0,"x_mm":0,"z_mm":4500,"yaw_deci":0,"pitch_deci":0,"target_alive":1,"score":0}:
         raise ValueError("Unexpected initial state")
+    git_rev = cmd(["git", "rev-parse", "HEAD"], check=False)
+    git_status = cmd(["git", "status", "--porcelain"], check=False)
     receipts = {
         "schema":"phaseone-evidence-v1",
         "status":"PASS",
         "scope":"Native selftests + CLI malformed trace rejection + WASM ABI negative tests + canonical replay parity. No visual browser proof.",
-        "source_sha": cmd(["git","rev-parse","HEAD"],check=False).stdout.strip() or "LOCAL_WORKTREE_NO_COMMIT",
-        "tree_status": cmd(["git","status","--porcelain"],check=False).stdout.strip() or "unknown/not-a-git-repo",
+        "source_sha": git_rev.stdout.strip() if git_rev.returncode == 0 else "UNAVAILABLE",
+        "source_head_sha": os.getenv("PHASEONE_HEAD_SHA", "UNAVAILABLE"),
+        "tree_status": ("UNAVAILABLE" if git_status.returncode else
+                        ("clean" if not git_status.stdout.strip() else "dirty")),
         "platform": platform.platform(),
         "native_cc_version": cmd([os.getenv("CC","cc"),"--version"]).stdout.splitlines()[0],
         "wasm_cc_version": cmd([os.getenv("WASM_CC","clang"),"--version"]).stdout.splitlines()[0],
